@@ -67,143 +67,7 @@
         return 'Desconhecida';
     };
 
-    // Função para coletar dados da div do SII, agora da div.row
-    function collectSiiData() {
-        const fullContentDiv = document.querySelector('div.row'); // Agora pega a div.row
-        const siiDiv = document.querySelector('div.p-3.bg-light.border.border-2.rounded'); // Ainda usada para algumas extrações seletivas
-        const subjectDiv = document.querySelector('div.col-md-6'); // Para o assunto do chamado
-
-        if (!fullContentDiv) {
-            console.warn("DIV 'div.row' de dados do SII não encontrada.");
-            return null;
-        }
-
-        const fullContent = fullContentDiv.innerText;
-        let cliente = 'Cliente Desconhecido';
-        let modulo = 'Módulo Desconhecido';
-        let local = 'Local Desconhecido';
-        let sistemaUrl = '';
-
-        // Tenta pegar informações da siiDiv se ela existir, pois tem um formato mais previsível
-        if (siiDiv) {
-            const siiContent = siiDiv.innerText;
-            const clientMatch = siiContent.match(/Cliente: (.+)/);
-            if (clientMatch) {
-                cliente = clientMatch[1].trim().split(' - ')[0];
-            }
-
-            const moduloMatch = siiContent.match(/Módulo: (.+)/);
-            if (moduloMatch) {
-                modulo = moduloMatch[1].trim();
-            }
-
-            const localMatch = siiContent.match(/Local:\s*([\s\S]+?)(?=(?:https:\/\/|\n\n|$))/);
-            if (localMatch) {
-                local = localMatch[1].trim();
-            }
-
-            const urlMatch = siiContent.match(/(https:\/\/[a-zA-Z0-9.-]+\.gov\.br\/)/);
-            if (urlMatch) {
-                sistemaUrl = urlMatch[1].trim();
-            }
-        } else { // Fallback para a fullContent se siiDiv não for encontrada
-            const clientMatch = fullContent.match(/Cliente: (.+)/);
-            if (clientMatch) {
-                cliente = clientMatch[1].trim().split(' - ')[0];
-            }
-
-            const moduloMatch = fullContent.match(/Módulo: (.+)/);
-            if (moduloMatch) {
-                modulo = moduloMatch[1].trim();
-            }
-
-            const localMatch = fullContent.match(/Local:\s*([\s\S]+?)(?=(?:https:\/\/|\n\n|$))/);
-            if (localMatch) {
-                local = localMatch[1].trim();
-            }
-
-            const urlMatch = fullContent.match(/(https:\/\/[a-zA-Z0-9.-]+\.gov\.br\/)/);
-            if (urlMatch) {
-                sistemaUrl = urlMatch[1].trim();
-            }
-        }
-
-
-        // Extrair número do chamado do link
-        const urlParts = window.location.href.split('/');
-        const numeroChamado = urlParts[urlParts.length - 1]; // Pega o último segmento da URL
-
-        // Extrair assunto do chamado da div.col-md-6
-        let assuntoChamado = 'Assunto Desconhecido';
-        if (subjectDiv) {
-            assuntoChamado = subjectDiv.innerText.trim();
-        }
-
-        // Formato do título: (CH Nª CHAMADO) ASSUNTO DO CHAMADO
-        const titulo = `(CH ${numeroChamado}) ${assuntoChamado}`;
-
-
-        // Determinar o setor com base na URL do sistema
-        let setor = '';
-        if (sistemaUrl.includes('gmus')) {
-            setor = 'G-MUS';
-        } else if (sistemaUrl.includes('ghosp')) {
-            setor = 'G-HOSP';
-        } else if (sistemaUrl.includes('gvis')) {
-            setor = 'G-VIS';
-        }
-
-        // Determinar a subcategoria (RG para módulo de regulação)
-        let itilCategoryId = null;
-        if (setor && CATEGORY_MAP[setor]) {
-            itilCategoryId = CATEGORY_MAP[setor].id; // Categoria principal
-            if (modulo.toUpperCase().includes('REGULAÇÃO') && CATEGORY_MAP[setor].subcategories['RG']) {
-                itilCategoryId = CATEGORY_MAP[setor].subcategories['RG'];
-            }
-        }
-
-        // Determinar o locationId com base no cliente e setor
-        let locationId = null;
-        if (setor && LOCATION_MAP[setor]) {
-            const locationsForSector = LOCATION_MAP[setor];
-            const standardizedCliente = standardizeString(cliente);
-            for (const mapLocationName in locationsForSector) {
-                const standardizedMapLocationName = standardizeString(mapLocationName);
-                if (standardizedCliente.includes(standardizedMapLocationName) || standardizedMapLocationName.includes(standardizedCliente)) {
-                    locationId = locationsForSector[mapLocationName];
-                    break;
-                }
-            }
-            if (locationId === null) { // Tenta encontrar pelo local
-                const standardizedLocal = standardizeString(local);
-                for (const mapLocationName in locationsForSector) {
-                    const standardizedMapLocationName = standardizeString(mapLocationName);
-                    if (standardizedLocal.includes(standardizedMapLocationName) || standardizedMapLocationName.includes(standardizedLocal)) {
-                        locationId = locationsForSector[mapLocationName];
-                        break;
-                    }
-                }
-            }
-        }
-
-        const now = new Date();
-        const dataHora = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-
-        return {
-            titulo: titulo,
-            conteudo: fullContent, // Agora pegando todo o conteúdo da div.row
-            cliente: cliente,
-            setor: setor,
-            itilCategoryId: itilCategoryId,
-            locationId: locationId,
-            status: 4, // Status sempre PENDENTE
-            requestType: 13, // RequestType sempre 13
-            dataHora: dataHora,
-            originalLink: window.location.href // Captura o link da página atual do SII
-        };
-    }
-
-    async function sendToGLPI(dataToUse) {
+    async function sendToGLPI(chatContextElement) {
         const sendButtons = document.querySelectorAll('.send-to-glpi-button');
         sendButtons.forEach(button => {
             button.disabled = true;
@@ -235,95 +99,57 @@
             }
 
             const base64Auth = btoa(`${USERNAME}:${PASSWORD}`);
+            const clienteElement = chatContextElement.querySelector('.contact-header-name');
+            const cliente = clienteElement ? clienteElement.innerText.split(' - ')[0].trim() : 'Cliente Desconhecido';
 
-            let titulo, conteudo, itilCategoryId, locationId, status, requestType, dataHora;
+            const setorElement = chatContextElement.querySelector('.badge-sector small');
+            const setor = setorElement ? setorElement.innerText.trim() : '';
 
-            // Determine if dataToUse is a chat context element or directly the collected data
-            if (dataToUse && dataToUse.originalLink && dataToUse.titulo.startsWith('(CH ')) { // É um dado coletado do SII
-                titulo = dataToUse.titulo;
-                conteudo = dataToUse.conteudo + `\n\nLink Original do Chamado SII: ${dataToUse.originalLink}`;
-                itilCategoryId = dataToUse.itilCategoryId;
-                locationId = dataToUse.locationId;
-                status = dataToUse.status;
-                requestType = dataToUse.requestType;
-                dataHora = dataToUse.dataHora;
-            } else { // É o elemento de contexto do chat (comportamento original do Umbler)
-                const chatContextElement = dataToUse;
-                const clienteElement = chatContextElement.querySelector('.contact-header-name');
-                const cliente = clienteElement ? clienteElement.innerText.split(' - ')[0].trim() : 'Cliente Desconhecido';
+            const rawEtiquetaElements = chatContextElement.querySelectorAll('.ub-tag-group span');
+            const etiquetasColetadas = [];
+            rawEtiquetaElements.forEach(el => {
+                let rawTag = el.innerText.trim();
+                rawTag = rawTag.replace(/^[\u{1F000}-\u{1FFFF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]\s*/u, '').trim();
+                if (rawTag && rawTag.length > 0) {
+                    etiquetasColetadas.push(standardizeString(rawTag));
+                }
+            });
 
-                const setorElement = chatContextElement.querySelector('.badge-sector small');
-                const setor = setorElement ? setorElement.innerText.trim() : '';
-
-                const rawEtiquetaElements = chatContextElement.querySelectorAll('.ub-tag-group span');
-                const etiquetasColetadas = [];
-                rawEtiquetaElements.forEach(el => {
-                    let rawTag = el.innerText.trim();
-                    rawTag = rawTag.replace(/^[\u{1F000}-\u{1FFFF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]\s*/u, '').trim();
-                    if (rawTag && rawTag.length > 0) {
-                        etiquetasColetadas.push(standardizeString(rawTag));
+            let itilCategoryId = null;
+            if (setor && CATEGORY_MAP[setor]) {
+                const mainCategory = CATEGORY_MAP[setor];
+                itilCategoryId = mainCategory.id;
+                for (const tag of etiquetasColetadas) {
+                    if (mainCategory.subcategories && mainCategory.subcategories[tag]) {
+                        itilCategoryId = mainCategory.subcategories[tag];
+                        break;
                     }
-                });
+                }
+            }
 
-                itilCategoryId = null;
-                if (setor && CATEGORY_MAP[setor]) {
-                    const mainCategory = CATEGORY_MAP[setor];
-                    itilCategoryId = mainCategory.id;
-                    for (const tag of etiquetasColetadas) {
-                        if (mainCategory.subcategories && mainCategory.subcategories[tag]) {
-                            itilCategoryId = mainCategory.subcategories[tag];
+            let locationId = null;
+            if (setor && LOCATION_MAP[setor]) {
+                const locationsForSector = LOCATION_MAP[setor];
+                for (const umblerTag of etiquetasColetadas) {
+                    for (const mapLocationName in locationsForSector) {
+                        if (mapLocationName.startsWith(umblerTag) || umblerTag.startsWith(mapLocationName)) {
+                            locationId = locationsForSector[mapLocationName];
                             break;
                         }
                     }
+                    if (locationId !== null) break;
                 }
-
-                locationId = null;
-                if (setor && LOCATION_MAP[setor]) {
-                    const locationsForSector = LOCATION_MAP[setor];
-                    for (const umblerTag of etiquetasColetadas) {
-                        for (const mapLocationName in locationsForSector) {
-                            if (mapLocationName.startsWith(umblerTag) || umblerTag.startsWith(mapLocationName)) {
-                                locationId = locationsForSector[mapLocationName];
-                                break;
-                            }
-                        }
-                        if (locationId !== null) break;
-                    }
-                }
-
-                titulo = `Atendimento com ${cliente}`;
-                const atendenteSignatureElement = chatContextElement.querySelector('.signature-text.fw-bold');
-                let atendente = atendenteSignatureElement ? atendenteSignatureElement.innerText.trim() : 'Atendente Desconhecido';
-
-                const formattedMessages = [];
-                const allMessageElements = chatContextElement.querySelectorAll('.chat-message-member, .chat-message-contact');
-
-                allMessageElements.forEach(el => {
-                    const messageText = el.innerText.trim();
-                    if (el.classList.contains('chat-message-member')) {
-                        formattedMessages.push(messageText);
-                    } else if (el.classList.contains('chat-message-contact')) {
-                        formattedMessages.push(`${cliente}: ${messageText}`);
-                    }
-                });
-
-                const mensagens = formattedMessages.join('\n');
-                const now = new Date();
-                dataHora = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-                const chatLink = window.location.href;
-                conteudo = `LINK: ${chatLink}\nAtendente: ${atendente}\nCliente: ${cliente}\nSetor Umbler: ${setor}\n\n\nConversa:\n${mensagens}`;
-                status = 6; // Status original para chamados de chat
-                requestType = 13; // RequestType original para chamados de chat
             }
 
-            const categoriaExibicao = getCategoryNameById(itilCategoryId, dataToUse.setor || '');
-            const localizacaoExibicao = getLocationNameById(locationId, dataToUse.setor || '');
+            const titulo = `Atendimento com ${cliente}`;
+            const categoriaExibicao = getCategoryNameById(itilCategoryId, setor);
+            const localizacaoExibicao = getLocationNameById(locationId, setor);
 
-            const confirmationMessage = `Tem certeza que deseja enviar para o GLPI?\n\n` +
-                `TÍTULO: ${titulo}\n` +
-                `CATEGORIA: ${categoriaExibicao || 'Não Definida'}\n` +
-                `LOCALIZAÇÃO: ${localizacaoExibicao || 'Não Definida'}\n\n` +
-                `Clique em OK para confirmar ou Cancelar para abortar.`;
+            const confirmationMessage = `Tem certeza que deseja enviar esta conversa para o GLPI?\n\n` +
+                                      `TÍTULO: ${titulo}\n` +
+                                      `CATEGORIA: ${categoriaExibicao || 'Não Definida'}\n` +
+                                      `LOCALIZAÇÃO: ${localizacaoExibicao || 'Não Definida'}\n\n` +
+                                      `Clique em OK para confirmar ou Cancelar para abortar.`;
 
             const confirmSend = confirm(confirmationMessage);
             if (!confirmSend) {
@@ -364,13 +190,37 @@
                 }
                 sessionToken = loginData.session_token;
 
+                let atendente = 'Atendente Desconhecido';
+                const atendenteSignatureElement = chatContextElement.querySelector('.signature-text.fw-bold');
+                if (atendenteSignatureElement) {
+                    atendente = atendenteSignatureElement.innerText.trim();
+                }
+
+                const formattedMessages = [];
+                const allMessageElements = chatContextElement.querySelectorAll('.chat-message-member, .chat-message-contact');
+
+                allMessageElements.forEach(el => {
+                    const messageText = el.innerText.trim();
+                    if (el.classList.contains('chat-message-member')) {
+                        formattedMessages.push(messageText);
+                    } else if (el.classList.contains('chat-message-contact')) {
+                        formattedMessages.push(`${cliente}: ${messageText}`);
+                    }
+                });
+
+                const mensagens = formattedMessages.join('\n');
+                const now = new Date();
+                const dataHora = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                const chatLink = window.location.href;
+                const conteudo = `LINK: ${chatLink}\nAtendente: ${atendente}\nCliente: ${cliente}\nSetor Umbler: ${setor}\n\n\nConversa:\n${mensagens}`;
+
                 const payload = {
                     input: {
                         name: titulo,
                         content: conteudo,
-                        status: status,
+                        status: 6,
                         date: dataHora,
-                        '_itilrequesttypes_id': requestType,
+                        '_itilrequesttypes_id': 13,
                     }
                 };
                 if (itilCategoryId !== null) payload.input.itilcategories_id = itilCategoryId;
@@ -421,111 +271,92 @@
         });
     }
 
-    function createGLPIButton(idSuffix, positionClass, clickHandler) {
+    function createGLPIButton(idSuffix, positionClass) {
         const sendButton = document.createElement('button');
         sendButton.id = 'sendToGLPIButton-' + idSuffix;
         sendButton.classList.add('send-to-glpi-button', positionClass);
         sendButton.innerText = 'Enviar para o GLPI';
         sendButton.type = 'button';
         sendButton.classList.add('btn', 'btn-success', 'ls-xs');
-        sendButton.onclick = clickHandler;
+        sendButton.onclick = function(event) {
+            const chatContextElement = this.closest('.item-deferred-purge');
+
+            if (!chatContextElement) {
+                console.warn("Contexto do chat (.item-deferred-purge) não encontrado próximo ao botão. Verifique o seletor no script! Usando 'document' como fallback, o que pode levar a dados incorretos se múltiplos chats estiverem abertos ou se o chat não for o foco principal do documento.");
+                sendToGLPI(document); 
+            } else {
+                console.log("Contexto do chat encontrado:", chatContextElement);
+                sendToGLPI(chatContextElement);
+            }
+        };
         return sendButton;
     }
 
     let lastUrl = window.location.href;
 
-    function manageButtonsOnCurrentPage() {
+    function manageButtonsOnChatPage() {
         const currentUrl = window.location.href;
         let shouldRemoveAndRecreate = false;
 
         if (currentUrl !== lastUrl) {
             shouldRemoveAndRecreate = true;
-        }
+        } else if (currentUrl.includes('app-utalk.umbler.com/chats/')) {
+            const bottomButtonExists = document.getElementById('sendToGLPIButton-bottom-position');
+            const finalizedButtonExists = document.getElementById('sendToGLPIButton-finalized-position');
+            // Seletores exatos da página do Umbler Talk para os locais de inserção dos botões
+            const bottomContainerPresent = document.querySelector('div.d-flex.align-items-center.gap-2 > div.inset-control');
+            const finalizedDivPresent = document.querySelector('div.fs-small.mb-auto');
 
-        const isUmblerTalkPage = currentUrl.includes('app-utalk.umbler.com/chats/');
-        const isSiiPage = currentUrl.includes('sii.inovadora.com.br/chamadas/mostrar/id/');
 
-        const bottomButtonExists = document.getElementById('sendToGLPIButton-bottom-position');
-        const finalizedButtonExists = document.getElementById('sendToGLPIButton-finalized-position');
-        const bottomContainerPresent = document.querySelector('div.d-flex.align-items-center.gap-2 > div.inset-control');
-        const finalizedDivPresent = document.querySelector('div.fs-small.mb-auto');
-
-        const siiButtonExists = document.getElementById('sendToGLPIButton-sii-data');
-        const pageTitPresent = document.getElementById('page-tit');
-        const siiDivContentPresent = document.querySelector('div.row'); // Agora verificamos a div.row para o botão SII
-
-        if (isUmblerTalkPage) {
-            if ((bottomContainerPresent && !bottomButtonExists) || (!bottomContainerPresent && bottomButtonExists) ||
-                (finalizedDivPresent && !finalizedButtonExists) || (!finalizedDivPresent && finalizedButtonExists)) {
+            if ((bottomContainerPresent && !bottomButtonExists) || (!bottomContainerPresent && bottomButtonExists)) {
                 shouldRemoveAndRecreate = true;
             }
-            if (siiButtonExists) {
+            // Apenas verifica a presença do div finalizado; a checagem de texto é feita ao adicionar
+            if ((finalizedDivPresent && !finalizedButtonExists) || (!finalizedDivPresent && finalizedButtonExists)) {
+                 shouldRemoveAndRecreate = true;
+            }
+             // Adiciona verificação para recriar se nenhum botão existir e um local for encontrado
+            if (!bottomButtonExists && bottomContainerPresent) {
                 shouldRemoveAndRecreate = true;
             }
-        } else if (isSiiPage) {
-            // AQUI É O AJUSTE CHAVE: Verifica se pageTitPresent e siiDivContentPresent (div.row) existem para o botão SII
-            if ((pageTitPresent && siiDivContentPresent && !siiButtonExists) || (!pageTitPresent && siiButtonExists) || (!siiDivContentPresent && siiButtonExists)) {
+            if (!finalizedButtonExists && finalizedDivPresent && finalizedDivPresent.innerText.includes('Esta conversa foi finalizada.')) {
                 shouldRemoveAndRecreate = true;
             }
-            if (bottomButtonExists || finalizedButtonExists) {
-                shouldRemoveAndRecreate = true;
-            }
-        } else {
+
+        } else { // Se não estiver na página de chats
             if (document.querySelectorAll('.send-to-glpi-button').length > 0) {
-                shouldRemoveAndRecreate = true;
+                shouldRemoveAndRecreate = true; // Remove botões se sair da página de chats
             }
         }
 
         if (shouldRemoveAndRecreate) {
+            // console.log("Removendo e recriando botões GLPI se necessário...");
             document.querySelectorAll('.send-to-glpi-button').forEach(button => button.remove());
 
-            if (isUmblerTalkPage) {
-                if (bottomContainerPresent && !document.getElementById('sendToGLPIButton-bottom-position')) {
-                    const newButton = createGLPIButton('bottom-position', 'bottom-position', function() {
-                        const chatContextElement = this.closest('.item-deferred-purge');
-                        if (!chatContextElement) {
-                            console.warn("Contexto do chat (.item-deferred-purge) não encontrado próximo ao botão. Usando 'document' como fallback.");
-                            sendToGLPI(document);
-                        } else {
-                            sendToGLPI(chatContextElement);
-                        }
-                    });
-                    bottomContainerPresent.after(newButton);
+            if (currentUrl.includes('app-utalk.umbler.com/chats/')) {
+                // Lógica para adicionar botão no container inferior
+                const bottomButtonsContainer = document.querySelector('div.d-flex.align-items-center.gap-2 > div.inset-control');
+                if (bottomButtonsContainer && !document.getElementById('sendToGLPIButton-bottom-position')) {
+                    const newButton = createGLPIButton('bottom-position', 'bottom-position');
+                    bottomButtonsContainer.after(newButton);
+                    // console.log("Botão GLPI adicionado (bottom).");
                 }
 
-                if (finalizedDivPresent && finalizedDivPresent.innerText.includes('Esta conversa foi finalizada.') && !document.getElementById('sendToGLPIButton-finalized-position')) {
-                    const newButton = createGLPIButton('finalized-position', 'finalized-chat-position', function() {
-                        const chatContextElement = this.closest('.item-deferred-purge');
-                        if (!chatContextElement) {
-                            console.warn("Contexto do chat (.item-deferred-purge) não encontrado próximo ao botão. Usando 'document' como fallback.");
-                            sendToGLPI(document);
-                        } else {
-                            sendToGLPI(chatContextElement);
-                        }
-                    });
-                    finalizedDivPresent.after(newButton);
-                }
-            } else if (isSiiPage) {
-                // AQUI É O AJUSTE CHAVE: Verifica se pageTitPresent e siiDivContentPresent (div.row) existem
-                if (pageTitPresent && siiDivContentPresent && !document.getElementById('sendToGLPIButton-sii-data')) {
-                    const newSiiButton = createGLPIButton('sii-data', 'sii-data-position', function() {
-                        const siiData = collectSiiData();
-                        if (siiData) {
-                            sendToGLPI(siiData);
-                        } else {
-                            alert('Não foi possível coletar os dados do SII. Verifique se as divs necessárias estão presentes.');
-                        }
-                    });
-                    pageTitPresent.appendChild(newSiiButton);
-                    newSiiButton.style.marginLeft = '10px';
+                // Lógica para adicionar botão em chat finalizado
+                const finalizedChatDiv = document.querySelector('div.fs-small.mb-auto');
+                if (finalizedChatDiv && finalizedChatDiv.innerText.includes('Esta conversa foi finalizada.') && !document.getElementById('sendToGLPIButton-finalized-position')) {
+                    const newButton = createGLPIButton('finalized-position', 'finalized-chat-position');
+                    finalizedChatDiv.after(newButton);
+                    // console.log("Botão GLPI adicionado (finalized).");
                 }
             }
             lastUrl = currentUrl;
         }
     }
-
+    // Garante que a lógica de botões seja executada um pouco depois do carregamento inicial
+    // para dar tempo à página de renderizar seus elementos dinâmicos.
     setTimeout(() => {
-        manageButtonsOnCurrentPage();
-        setInterval(manageButtonsOnCurrentPage, 750);
-    }, 1000);
+        manageButtonsOnChatPage(); // Chamada inicial
+        setInterval(manageButtonsOnChatPage, 750); // Intervalo de verificação
+    }, 1000); // Delay inicial antes de começar a verificar
 })();
