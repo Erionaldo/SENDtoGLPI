@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configurações - Enviar Chat para GLPI</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; width: 450px; background-color: #f4f4f4; margin: 20px auto; }
+        h1 { color: #333; text-align: center; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        label { display: block; margin-top: 15px; margin-bottom: 5px; color: #555; font-weight: bold; }
+        input[type="text"], input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin-top: 25px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover { background-color: #218838; }
+        #status {
+            margin-top: 20px;
+            color: green;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Configurações da Extensão</h1>
+
+        <label for="glpiUrl">URL da API GLPI:</label>
+        <input type="text" id="glpiUrl" placeholder="Ex: https://meuglpi.com/apirest.php">
+
+        <label for="appToken">App Token GLPI:</label>
+        <input type="text" id="appToken" placeholder="Seu token de aplicação do GLPI">
+
+        <label for="username">Usuário GLPI:</label>
+        <input type="text" id="username" placeholder="Seu nome de usuário do GLPI">
+
+        <label for="password">Senha GLPI:</label>
+        <input type="password" id="password" placeholder="Sua senha do GLPI">
+
+        <button id="save">Salvar Configurações</button>
+        <div id="status"></div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>
