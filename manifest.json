@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Send to GLPI",
-  "version": "1.1",
+  "version": "1.2", 
   "description": "Adiciona um botão para enviar conversas do Umbler Talk e chamados do SII para o GLPI e aprimora a coleta de dados com configurações.",
   "author": "Erionaldo Freitas",
   "permissions": [
@@ -9,7 +9,8 @@
   ],
   "host_permissions": [
     "https://app-utalk.umbler.com/*",
-    "https://chamados.pztech.net.br/*"
+    "https://chamados.pztech.net.br/*", 
+    "https://sii.inovadora.com.br/*"  
   ],
   "options_ui": {
     "page": "options.html",
@@ -17,7 +18,10 @@
   },
   "content_scripts": [
     {
- "matches": ["https://app-utalk.umbler.com/*", "https://sii.inovadora.com.br/chamadas/mostrar/id/*"],
+      "matches": [
+        "https://app-utalk.umbler.com/*",
+        "https://sii.inovadora.com.br/chamadas/mostrar/id/*" 
+      ],
       "js": ["content.js"]
     }
   ],
