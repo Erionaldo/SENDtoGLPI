@@ -17,7 +17,8 @@
                 'RG': 9, 'ST': 7, 'TR': 11, 'VC': 12, 'VP': 10
             }
         },
-        'G-VIS': { id: 36 }
+        'G-VIS': { id: 36 },
+        'IVI': { id: 36 }
     };
 
     const LOCATION_MAP = {
@@ -27,7 +28,7 @@
         },
         'G-VIS': { 'XANGRILA': 24, 'TRAMANDAI': 23 },
         'G-HOSP': {
-            'BARRACAO': 3, 'MODULO COMPRAS': 10, 'FELIZ': 1, 'ITATIBA DO SUL': 9,
+            'BARRACAO': 3, 'IB SAUDE': 10, 'FELIZ': 1, 'ITATIBA DO SUL': 9,
             'LAGOA NOVA': 20, 'NITEROI': 22, 'PARAI': 25, 'RIOZINHO': 21,
             'SALDANHA MARINHO': 2, 'TRAMANDAI': 7, 'XANGRILA': 5
         }
@@ -91,7 +92,8 @@
     const SII_SECTOR_TO_KEY = {
         'GMUS': 'G-MUS',
         'GHOSP': 'G-HOSP',
-        'GVIS': 'G-VIS'
+        'GVIS': 'G-VIS',
+        'Ivi': 'Ivi'
     };
 
     const standardizeString = (str) => {
